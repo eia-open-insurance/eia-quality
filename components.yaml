@@ -1,0 +1,9 @@
+components:
+  - name: simulators
+    path: simulators
+    type: test-service
+    deployable: false
+  - name: e2e
+    path: e2e
+    type: test-suite
+    deployable: false
