@@ -1,0 +1,16 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000041001",
+  "idempotencyKey": "fixture-ocr-document-0001",
+  "correlationId": "corr-ocr-document-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-document-expert",
+  "targetSystem": "OCR",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "documentId": "0192f3a4-0000-7000-8000-000000050001",
+  "documentType": "CMS1500",
+  "versionHash": "a3f1c9e7b52d8460f1a2c3d4e5f60718293a4b5c6d7e8f9012a3b4c5d6e7f809",
+  "contentType": "application/pdf",
+  "contentBase64": "JVBERi0xLjQK",
+  "pageCount": 2
+}

@@ -1,0 +1,33 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000012001",
+  "idempotencyKey": "fixture-fsri-retro-contract-0001",
+  "correlationId": "corr-fsri-retro-contract-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "businessBook": "ASSUMED",
+  "sourceSystem": "eia-retrocession-expert",
+  "targetSystem": "FS-RI",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "contractNumber": "RET-2026-0001",
+  "contractType": "QUOTA_SHARE",
+  "cedantPartyId": "0192f3a4-0000-7000-8000-000000021001",
+  "reinsurerPartyIds": ["0192f3a4-0000-7000-8000-000000021002"],
+  "effectiveFrom": "2026-01-01",
+  "effectiveTo": "2026-12-31",
+  "currency": "USD",
+  "status": "BOUND",
+  "layers": [
+    {
+      "layerNumber": 1,
+      "attachment": { "amount": "0.00", "currency": "USD" },
+      "limit": { "amount": "2000000.00", "currency": "USD" }
+    }
+  ],
+  "participants": [
+    {
+      "partyId": "0192f3a4-0000-7000-8000-000000021002",
+      "role": "REINSURER",
+      "sharePct": "0.300000"
+    }
+  ]
+}

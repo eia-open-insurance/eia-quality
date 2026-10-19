@@ -1,0 +1,30 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000013001",
+  "idempotencyKey": "fixture-fsri-retro-0001",
+  "correlationId": "corr-fsri-retro-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "businessBook": "ASSUMED",
+  "sourceSystem": "eia-retrocession-expert",
+  "targetSystem": "FS-RI",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "contractNumber": "RET-2026-0001",
+  "retroCaseRef": "RET-CASE-2026-0001",
+  "source": {
+    "type": "CLAIM",
+    "id": "0192f3a4-0000-7000-8000-000000031001",
+    "businessKey": "ACL-2026-000042",
+    "version": 2,
+    "book": "ASSUMED"
+  },
+  "contractRef": {
+    "type": "CONTRACT",
+    "id": "0192f3a4-0000-7000-8000-000000031002",
+    "businessKey": "RC-2026-000042"
+  },
+  "expectedAmount": { "amount": "210000.00", "currency": "USD" },
+  "cededLoss": { "amount": "700000.00", "currency": "USD" },
+  "retrocessionPct": "0.300000",
+  "effectiveDate": "2026-09-30",
+  "ruleVersion": "v1"
+}

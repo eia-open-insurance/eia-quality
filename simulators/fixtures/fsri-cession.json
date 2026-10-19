@@ -1,0 +1,42 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000011001",
+  "idempotencyKey": "fixture-fsri-cession-0001",
+  "correlationId": "corr-fsri-cession-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "businessBook": "DIRECT",
+  "sourceSystem": "eia-cession-expert",
+  "targetSystem": "FS-RI",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "contractNumber": "CES-2026-0001",
+  "cessionCaseRef": "CES-CASE-2026-0001",
+  "source": {
+    "type": "CLAIM",
+    "id": "0192f3a4-0000-7000-8000-000000030001",
+    "businessKey": "CLM-2026-0193382",
+    "version": 3,
+    "book": "DIRECT"
+  },
+  "policyRef": {
+    "type": "POLICY",
+    "id": "0192f3a4-0000-7000-8000-000000030002",
+    "businessKey": "GL-2024-0041827"
+  },
+  "claimRef": {
+    "type": "CLAIM",
+    "id": "0192f3a4-0000-7000-8000-000000030001",
+    "businessKey": "CLM-2026-0193382"
+  },
+  "expectedAmount": { "amount": "240000.00", "currency": "USD" },
+  "cededPremium": { "amount": "400000.00", "currency": "USD" },
+  "commissionPct": "0.250000",
+  "effectiveDate": "2026-09-30",
+  "calculationBasis": "PAID_LOSS",
+  "ruleVersion": "v1",
+  "documents": [
+    {
+      "documentId": "0192f3a4-0000-7000-8000-000000040001",
+      "documentType": "LOSS_ADVICE"
+    }
+  ]
+}

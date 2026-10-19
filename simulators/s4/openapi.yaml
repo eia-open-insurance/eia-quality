@@ -1,0 +1,1244 @@
+openapi: 3.1.0
+info:
+  title: EIA SAP S/4HANA simulator
+  version: 1.0.0
+  description: |
+    Deterministic test double for the SAP S/4HANA finance boundary in SPEC
+    §7.13, §7.23.6 and §15.3.
+
+    Test double only: no SAP connection, no production credentials, never a
+    production adapter. Every write carries the §7.23.2 envelope and an
+    idempotency key. AR/AP documents, journal entries, reversals and cash
+    applications post to an in-memory GL used by `/gl-balances` and
+    `/reconciliations`.
+
+    Deterministic fault modes: `reject`, `closed_period`, `fx_difference`,
+    `timeout`, `unavailable`, `throttled`, `malformed`, `duplicate` via
+    `X-Sim-Scenario` or a business-reference magic suffix.
+servers:
+  - url: http://127.0.0.1:8180/sim/s4/v1
+    description: Aggregate simulator, host port 8180
+  - url: http://127.0.0.1:8182/sim/s4/v1
+    description: Standalone S/4HANA simulator
+  - url: http://simulators:8080/sim/s4/v1
+    description: Docker Compose service name
+tags:
+  - name: Journal
+  - name: Accounts receivable
+  - name: Accounts payable
+  - name: Cash
+  - name: Reversals
+  - name: GL and reconciliation
+  - name: Control
+paths:
+  /journal-entries:
+    post:
+      tags: [Journal]
+      summary: Post a balanced GL journal entry
+      operationId: postJournalEntry
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+        - $ref: '#/components/parameters/Scenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JournalEntryRequest'
+      responses:
+        '201':
+          description: Posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JournalEntry'
+        '200':
+          description: Duplicate business reference acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JournalEntry'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Journal]
+      summary: List journal entries
+      operationId: listJournalEntries
+      parameters:
+        - name: companyCode
+          in: query
+          schema:
+            type: string
+            pattern: '^\d{4}$'
+        - name: period
+          in: query
+          schema:
+            $ref: '#/components/schemas/Period'
+      responses:
+        '200':
+          description: Journal page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /journal-entries/{documentNumber}:
+    get:
+      tags: [Journal]
+      summary: Get a journal entry
+      operationId: getJournalEntry
+      parameters:
+        - $ref: '#/components/parameters/DocumentNumber'
+      responses:
+        '200':
+          description: Journal entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JournalEntry'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /ar-invoices:
+    post:
+      tags: [Accounts receivable]
+      summary: Post an AR invoice instruction
+      operationId: postArInvoice
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Scenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArInvoiceRequest'
+      responses:
+        '201':
+          description: Posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArInvoice'
+        '200':
+          description: Duplicate acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArInvoice'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Accounts receivable]
+      summary: List AR invoices
+      operationId: listArInvoices
+      responses:
+        '200':
+          description: AR invoice page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /ar-invoices/{documentNumber}:
+    get:
+      tags: [Accounts receivable]
+      summary: Get an AR invoice
+      operationId: getArInvoice
+      parameters:
+        - $ref: '#/components/parameters/DocumentNumber'
+      responses:
+        '200':
+          description: AR invoice
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArInvoice'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /supplier-invoices:
+    post:
+      tags: [Accounts payable]
+      summary: Post a supplier invoice with SAP duplicate checking
+      operationId: postSupplierInvoice
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Scenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierInvoiceRequest'
+      responses:
+        '201':
+          description: Posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierInvoice'
+        '200':
+          description: Duplicate acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierInvoice'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Accounts payable]
+      summary: List supplier invoices
+      operationId: listSupplierInvoices
+      responses:
+        '200':
+          description: Supplier invoice page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /supplier-invoices/{documentNumber}:
+    get:
+      tags: [Accounts payable]
+      summary: Get a supplier invoice
+      operationId: getSupplierInvoice
+      parameters:
+        - $ref: '#/components/parameters/DocumentNumber'
+      responses:
+        '200':
+          description: Supplier invoice
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierInvoice'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /payment-advices:
+    post:
+      tags: [Accounts payable]
+      summary: Post an AP payment advice
+      operationId: postPaymentAdvice
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Scenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentAdviceRequest'
+      responses:
+        '201':
+          description: Paid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentAdvice'
+        '200':
+          description: Duplicate acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentAdvice'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Accounts payable]
+      summary: List payment advices
+      operationId: listPaymentAdvices
+      responses:
+        '200':
+          description: Payment advice page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /payment-advices/{documentNumber}:
+    get:
+      tags: [Accounts payable]
+      summary: Get a payment advice
+      operationId: getPaymentAdvice
+      parameters:
+        - $ref: '#/components/parameters/DocumentNumber'
+      responses:
+        '200':
+          description: Payment advice
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentAdvice'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /cash-applications:
+    post:
+      tags: [Cash]
+      summary: Apply cash to an AR invoice, recording any unapplied amount
+      operationId: postCashApplication
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Scenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CashApplicationRequest'
+      responses:
+        '201':
+          description: Cash applied, partially applied or unallocated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashApplication'
+        '200':
+          description: Duplicate acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashApplication'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Cash]
+      summary: List cash applications
+      operationId: listCashApplications
+      responses:
+        '200':
+          description: Cash application page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /cash-applications/{clearingDocument}:
+    get:
+      tags: [Cash]
+      summary: Get a cash application
+      operationId: getCashApplication
+      parameters:
+        - name: clearingDocument
+          in: path
+          required: true
+          schema:
+            type: string
+            example: S4-CL-2026-000001
+      responses:
+        '200':
+          description: Cash application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashApplication'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /reversals:
+    post:
+      tags: [Reversals]
+      summary: Reverse a posted document instead of editing it
+      operationId: postReversal
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Scenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReversalRequest'
+      responses:
+        '201':
+          description: Reversal posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reversal'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Reversals]
+      summary: List reversals
+      operationId: listReversals
+      responses:
+        '200':
+          description: Reversal page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /reversals/{documentNumber}:
+    get:
+      tags: [Reversals]
+      summary: Get a reversal
+      operationId: getReversal
+      parameters:
+        - $ref: '#/components/parameters/DocumentNumber'
+      responses:
+        '200':
+          description: Reversal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reversal'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /gl-balances:
+    get:
+      tags: [GL and reconciliation]
+      summary: Aggregate in-memory GL postings by company code, period and account
+      operationId: listGlBalances
+      parameters:
+        - name: companyCode
+          in: query
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            $ref: '#/components/schemas/Period'
+        - name: account
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: GL balance page with totals
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /reconciliations:
+    post:
+      tags: [GL and reconciliation]
+      summary: Compare expected documents with posted documents
+      description: Break reasons use the SPEC §7.13.5 code set and the amount tolerance is ±0.01.
+      operationId: postReconciliation
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconciliationRequest'
+      responses:
+        '201':
+          description: Reconciliation produced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reconciliation'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [GL and reconciliation]
+      summary: List reconciliation runs
+      operationId: listReconciliations
+      responses:
+        '200':
+          description: Reconciliation page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /reconciliations/{reconciliationId}:
+    get:
+      tags: [GL and reconciliation]
+      summary: Get a reconciliation run
+      operationId: getReconciliation
+      parameters:
+        - name: reconciliationId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: S4-REC-202609-000001
+      responses:
+        '200':
+          description: Reconciliation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reconciliation'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /admin/state:
+    get:
+      tags: [Control]
+      summary: Read simulator state and closed periods
+      operationId: getState
+      responses:
+        '200':
+          description: State
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/reset:
+    post:
+      tags: [Control]
+      summary: Reset state and restore default closed periods
+      operationId: reset
+      responses:
+        '200':
+          description: Reset
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/periods:
+    get:
+      tags: [Control]
+      summary: List closed fiscal periods
+      operationId: listPeriods
+      responses:
+        '200':
+          description: Closed periods
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/scenarios:
+    get:
+      tags: [Control]
+      summary: Read the default fault scenario
+      operationId: getScenario
+      responses:
+        '200':
+          description: Scenario state
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    post:
+      tags: [Control]
+      summary: Set or clear the default fault scenario
+      operationId: setScenario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scenario:
+                  type: [string, 'null']
+      responses:
+        '200':
+          description: Scenario state
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/periods/{period}/close:
+    post:
+      tags: [Control]
+      summary: Close a fiscal period
+      operationId: closePeriod
+      parameters:
+        - name: period
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Period'
+      responses:
+        '200':
+          description: Closed periods
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/periods/{period}/open:
+    post:
+      tags: [Control]
+      summary: Reopen a fiscal period
+      operationId: openPeriod
+      parameters:
+        - name: period
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Period'
+      responses:
+        '200':
+          description: Closed periods
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+    Scenario:
+      name: X-Sim-Scenario
+      in: header
+      required: false
+      description: Deterministic simulator fault mode.
+      schema:
+        type: string
+        enum: [accept, reject, timeout, malformed, unavailable, throttled, duplicate, closed_period, fx_difference]
+    DocumentNumber:
+      name: documentNumber
+      in: path
+      required: true
+      schema:
+        type: string
+        example: S4-JE-2026-000001
+  responses:
+    Problem:
+      description: Problem response (SPEC §7.23.4 taxonomy)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Period:
+      type: string
+      pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+    CompanyCode:
+      type: string
+      pattern: '^\d{4}$'
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: string
+          pattern: '^-?\d{1,15}(\.\d{1,4})?$'
+          example: '250000.00'
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+    ProblemError:
+      type: object
+      properties:
+        field:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+    Problem:
+      type: object
+      required: [type, title, status, code, category, retryable, errors]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+        category:
+          type: string
+        retryable:
+          type: boolean
+        correlationId:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemError'
+        meta:
+          type: object
+          additionalProperties: true
+    Envelope:
+      type: object
+      required: [messageId, tenantId, sourceSystem, targetSystem, schemaVersion, createdAt]
+      properties:
+        messageId:
+          type: string
+        idempotencyKey:
+          type: string
+        correlationId:
+          type: string
+        tenantId:
+          type: string
+        sourceSystem:
+          type: string
+        targetSystem:
+          type: string
+          example: S/4HANA
+        schemaVersion:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+        createdAt:
+          type: string
+          format: date-time
+        payloadHash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+    JournalLine:
+      type: object
+      required: [account]
+      properties:
+        account:
+          type: string
+          pattern: '^\d{6}$'
+        debitAmount:
+          $ref: '#/components/schemas/Money'
+        creditAmount:
+          $ref: '#/components/schemas/Money'
+        costCenter:
+          type: string
+        profitCenter:
+          type: string
+        taxCode:
+          type: string
+        text:
+          type: string
+    JournalEntryRequest:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [companyCode, postingDate, currency, businessReference, lines]
+          properties:
+            companyCode:
+              $ref: '#/components/schemas/CompanyCode'
+            postingDate:
+              type: string
+              format: date
+            documentDate:
+              type: string
+              format: date
+            documentType:
+              type: string
+              enum: [SA, KR, DR, AB]
+              default: SA
+            currency:
+              type: string
+            functionalCurrency:
+              type: string
+            businessReference:
+              type: string
+            lines:
+              type: array
+              minItems: 2
+              items:
+                $ref: '#/components/schemas/JournalLine'
+    JournalEntryLine:
+      type: object
+      properties:
+        lineNumber:
+          type: integer
+        account:
+          type: string
+        debitAmount:
+          $ref: '#/components/schemas/Money'
+        creditAmount:
+          $ref: '#/components/schemas/Money'
+        costCenter:
+          type: [string, 'null']
+        profitCenter:
+          type: [string, 'null']
+        taxCode:
+          type: [string, 'null']
+        text:
+          type: [string, 'null']
+    JournalEntry:
+      type: object
+      properties:
+        documentNumber:
+          type: string
+        companyCode:
+          type: string
+        fiscalYear:
+          type: string
+        postingPeriod:
+          type: string
+        documentType:
+          type: string
+        documentDate:
+          type: string
+        postingDate:
+          type: string
+        status:
+          type: string
+          enum: [POSTED]
+        businessReference:
+          type: string
+        documentCurrency:
+          type: string
+        totalDebit:
+          $ref: '#/components/schemas/Money'
+        totalCredit:
+          $ref: '#/components/schemas/Money'
+        fxDifference:
+          $ref: '#/components/schemas/Money'
+        functionalCurrency:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalEntryLine'
+        reversed:
+          type: boolean
+        reversedBy:
+          type: [string, 'null']
+        postedAt:
+          type: string
+        duplicate:
+          type: boolean
+        _links:
+          type: object
+          additionalProperties: true
+    Party:
+      type: object
+      required: [customerId, name]
+      properties:
+        customerId:
+          type: string
+        name:
+          type: string
+    Vendor:
+      type: object
+      required: [vendorId, name]
+      properties:
+        vendorId:
+          type: string
+        name:
+          type: string
+    ArInvoiceRequest:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [billingInstructionId, companyCode, customer, netAmount, currency, invoiceDate, dueDate, businessReference]
+          properties:
+            billingInstructionId:
+              type: string
+            companyCode:
+              $ref: '#/components/schemas/CompanyCode'
+            customer:
+              $ref: '#/components/schemas/Party'
+            netAmount:
+              $ref: '#/components/schemas/Money'
+            taxAmount:
+              $ref: '#/components/schemas/Money'
+            currency:
+              type: string
+            invoiceDate:
+              type: string
+              format: date
+            dueDate:
+              type: string
+              format: date
+            paymentTerms:
+              type: string
+            businessReference:
+              type: string
+    ArInvoice:
+      type: object
+      properties:
+        arInvoiceNumber:
+          type: string
+        billingInstructionId:
+          type: string
+        companyCode:
+          type: string
+        customer:
+          $ref: '#/components/schemas/Party'
+        status:
+          type: string
+          enum: [POSTED]
+        currency:
+          type: string
+        netAmount:
+          $ref: '#/components/schemas/Money'
+        taxAmount:
+          $ref: '#/components/schemas/Money'
+        grossAmount:
+          $ref: '#/components/schemas/Money'
+        openAmount:
+          $ref: '#/components/schemas/Money'
+        clearingStatus:
+          type: string
+          enum: [OPEN, PARTIAL, CLEARED]
+        invoiceDate:
+          type: string
+        dueDate:
+          type: string
+        paymentTerms:
+          type: string
+        businessReference:
+          type: string
+        reversed:
+          type: boolean
+        postedAt:
+          type: string
+        duplicate:
+          type: boolean
+        _links:
+          type: object
+          additionalProperties: true
+    SupplierInvoiceRequest:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [invoiceId, supplier, companyCode, netAmount, currency, invoiceDate, dueDate, businessReference]
+          properties:
+            invoiceId:
+              type: string
+            supplier:
+              $ref: '#/components/schemas/Vendor'
+            companyCode:
+              $ref: '#/components/schemas/CompanyCode'
+            netAmount:
+              $ref: '#/components/schemas/Money'
+            taxAmount:
+              $ref: '#/components/schemas/Money'
+            currency:
+              type: string
+            invoiceDate:
+              type: string
+              format: date
+            dueDate:
+              type: string
+              format: date
+            businessReference:
+              type: string
+            purchaseOrder:
+              type: string
+    SupplierInvoice:
+      type: object
+      properties:
+        supplierInvoiceNumber:
+          type: string
+        invoiceId:
+          type: string
+        companyCode:
+          type: string
+        supplier:
+          $ref: '#/components/schemas/Vendor'
+        status:
+          type: string
+          enum: [POSTED]
+        currency:
+          type: string
+        netAmount:
+          $ref: '#/components/schemas/Money'
+        taxAmount:
+          $ref: '#/components/schemas/Money'
+        grossAmount:
+          $ref: '#/components/schemas/Money'
+        openAmount:
+          $ref: '#/components/schemas/Money'
+        invoiceDate:
+          type: string
+        dueDate:
+          type: string
+        businessReference:
+          type: string
+        purchaseOrder:
+          type: [string, 'null']
+        duplicateCheck:
+          type: string
+          example: PASSED
+        reversed:
+          type: boolean
+        postedAt:
+          type: string
+        duplicate:
+          type: boolean
+        _links:
+          type: object
+          additionalProperties: true
+    PaymentAdviceRequest:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [paymentId, companyCode, payee, amount, currency, method, dueDate]
+          properties:
+            paymentId:
+              type: string
+            companyCode:
+              $ref: '#/components/schemas/CompanyCode'
+            payee:
+              type: object
+              properties:
+                vendorId:
+                  type: string
+                name:
+                  type: string
+                bankAccount:
+                  type: string
+            amount:
+              $ref: '#/components/schemas/Money'
+            currency:
+              type: string
+            method:
+              type: string
+              enum: [ACH, WIRE, CHECK]
+            remittance:
+              type: object
+              properties:
+                businessReferences:
+                  type: array
+                  items:
+                    type: string
+                note:
+                  type: string
+            dueDate:
+              type: string
+              format: date
+            valueDate:
+              type: string
+              format: date
+    PaymentAdvice:
+      type: object
+      properties:
+        paymentAdviceNumber:
+          type: string
+        paymentDocument:
+          type: string
+        paymentId:
+          type: string
+        companyCode:
+          type: string
+        payee:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [PAID]
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+        method:
+          type: string
+        valueDate:
+          type: string
+        dueDate:
+          type: string
+        bankReference:
+          type: string
+        remittance:
+          type: object
+          additionalProperties: true
+        reversed:
+          type: boolean
+        paidAt:
+          type: string
+        duplicate:
+          type: boolean
+        _links:
+          type: object
+          additionalProperties: true
+    CashApplicationRequest:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [invoiceReference, amount, currency, valueDate, bankReference]
+          properties:
+            invoiceReference:
+              type: string
+            companyCode:
+              $ref: '#/components/schemas/CompanyCode'
+            amount:
+              $ref: '#/components/schemas/Money'
+            currency:
+              type: string
+            valueDate:
+              type: string
+              format: date
+            bankReference:
+              type: string
+            clearingDocument:
+              type: string
+    CashApplication:
+      type: object
+      properties:
+        clearingDocument:
+          type: string
+        invoiceReference:
+          type: string
+        invoiceDocumentNumber:
+          type: [string, 'null']
+        companyCode:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [CLEARED, PARTIAL, UNALLOCATED]
+        amount:
+          $ref: '#/components/schemas/Money'
+        appliedAmount:
+          $ref: '#/components/schemas/Money'
+        unappliedAmount:
+          $ref: '#/components/schemas/Money'
+        valueDate:
+          type: string
+        bankReference:
+          type: string
+        clearedAt:
+          type: string
+        duplicate:
+          type: boolean
+        _links:
+          type: object
+          additionalProperties: true
+    ReversalRequest:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [originalDocumentNumber, reason, postingDate]
+          properties:
+            originalDocumentNumber:
+              type: string
+            reason:
+              type: string
+            postingDate:
+              type: string
+              format: date
+    Reversal:
+      type: object
+      properties:
+        reversalDocumentNumber:
+          type: string
+        originalDocumentNumber:
+          type: string
+        originalDocumentType:
+          type: string
+        status:
+          type: string
+          enum: [POSTED]
+        reversedAmount:
+          $ref: '#/components/schemas/Money'
+        reason:
+          type: string
+        postingDate:
+          type: string
+        postedAt:
+          type: string
+        _links:
+          type: object
+          additionalProperties: true
+    ReconciliationExpected:
+      type: object
+      required: [businessReference, documentType, amount]
+      properties:
+        businessReference:
+          type: string
+        documentType:
+          type: string
+          enum: [AR_INVOICE, SUPPLIER_INVOICE, PAYMENT_ADVICE, JOURNAL_ENTRY]
+        amount:
+          $ref: '#/components/schemas/Money'
+    ReconciliationRequest:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [companyCode, period, expected]
+          properties:
+            companyCode:
+              $ref: '#/components/schemas/CompanyCode'
+            period:
+              $ref: '#/components/schemas/Period'
+            currency:
+              type: string
+            expected:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReconciliationExpected'
+    ReconciliationBreak:
+      type: object
+      properties:
+        businessReference:
+          type: string
+        documentType:
+          type: string
+        reason:
+          type: string
+          enum: [MISSING_SAP_INVOICE, MISSING_EXPECTATION, AMOUNT_MISMATCH, DUPLICATE]
+        documentNumber:
+          type: string
+        expectedAmount:
+          $ref: '#/components/schemas/Money'
+        postedAmount:
+          $ref: '#/components/schemas/Money'
+        difference:
+          $ref: '#/components/schemas/Money'
+    Reconciliation:
+      type: object
+      properties:
+        reconciliationId:
+          type: string
+        companyCode:
+          type: string
+        period:
+          type: string
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [MATCHED, BREAKS]
+        matchedCount:
+          type: integer
+        breakCount:
+          type: integer
+        expectedTotal:
+          $ref: '#/components/schemas/Money'
+        postedTotal:
+          $ref: '#/components/schemas/Money'
+        variance:
+          $ref: '#/components/schemas/Money'
+        tolerance:
+          type: object
+          properties:
+            amount:
+              $ref: '#/components/schemas/Money'
+            rule:
+              type: string
+        breaks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReconciliationBreak'
+        checkedAt:
+          type: string
+        _links:
+          type: object
+          additionalProperties: true

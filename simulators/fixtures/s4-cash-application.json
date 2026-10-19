@@ -1,0 +1,16 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000024001",
+  "idempotencyKey": "fixture-s4-cash-application-0001",
+  "correlationId": "corr-s4-cash-application-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-payment-expert",
+  "targetSystem": "S/4HANA",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "companyCode": "1000",
+  "invoiceReference": "BILL-2026-0001",
+  "amount": { "amount": "100000.00", "currency": "USD" },
+  "currency": "USD",
+  "valueDate": "2026-10-01",
+  "bankReference": "BNK-REF-2026-0001"
+}

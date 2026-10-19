@@ -1,0 +1,463 @@
+openapi: 3.1.0
+info:
+  title: EIA bank simulator
+  version: 1.0.0
+  description: |
+    Deterministic bank test double for outgoing credit transfers and ISO 20022
+    `camt.053.001.08` statements (SPEC §13.4, §15.3).
+
+    Test double only. Payment outcomes are selected deterministically by
+    scenario: match (default), partial, return. Duplicate end-to-end IDs are
+    rejected; idempotent retries replay the original response.
+servers:
+  - url: http://127.0.0.1:8180/sim/bank/v1
+    description: Aggregate simulator, host port 8180
+  - url: http://127.0.0.1:8183/sim/bank/v1
+    description: Standalone bank simulator
+tags:
+  - name: Payments
+  - name: Statements
+  - name: Control
+paths:
+  /payments:
+    post:
+      tags: [Payments]
+      summary: Accept an outgoing credit transfer
+      operationId: postPayment
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Scenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '201':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '200':
+          description: Duplicate payment acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Payments]
+      summary: List payments
+      operationId: listPayments
+      parameters:
+        - name: endToEndId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /payments/{bankPaymentId}:
+    get:
+      tags: [Payments]
+      summary: Get a payment
+      operationId: getPayment
+      parameters:
+        - name: bankPaymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: BNK-PAY-000001
+      responses:
+        '200':
+          description: Payment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /statements:
+    post:
+      tags: [Statements]
+      summary: Generate a camt.053 statement from accepted payments
+      operationId: createStatement
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatementRequest'
+      responses:
+        '201':
+          description: Statement created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Statement'
+        '400':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Statements]
+      summary: List statements
+      operationId: listStatements
+      parameters:
+        - name: accountIban
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Statement page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /statements/{statementId}:
+    get:
+      tags: [Statements]
+      summary: Get statement metadata and entries
+      operationId: getStatement
+      parameters:
+        - name: statementId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: BNK-STM-000001
+      responses:
+        '200':
+          description: Statement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Statement'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /statements/{statementId}/camt053:
+    get:
+      tags: [Statements]
+      summary: Download the ISO 20022 camt.053.001.08 XML document
+      operationId: getCamt053
+      parameters:
+        - name: statementId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: XML statement
+          content:
+            application/xml:
+              schema:
+                type: string
+        '404':
+          $ref: '#/components/responses/Problem'
+  /admin/state:
+    get:
+      tags: [Control]
+      summary: Simulator control state
+      operationId: getState
+      responses:
+        '200':
+          description: State
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/reset:
+    post:
+      tags: [Control]
+      summary: Reset all in-memory state
+      operationId: reset
+      responses:
+        '200':
+          description: Reset
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/scenarios:
+    get:
+      tags: [Control]
+      summary: Read the default fault scenario
+      operationId: getScenario
+      responses:
+        '200':
+          description: Scenario state
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    post:
+      tags: [Control]
+      summary: Set or clear the default fault scenario
+      operationId: setScenario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scenario:
+                  type: [string, 'null']
+      responses:
+        '200':
+          description: Scenario state
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+    Scenario:
+      name: X-Sim-Scenario
+      in: header
+      required: false
+      schema:
+        type: string
+        enum: [accept, partial, return, reject, timeout, malformed, unavailable, throttled, duplicate]
+  responses:
+    Problem:
+      description: Problem response
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: string
+          pattern: '^-?\d{1,15}(\.\d{1,4})?$'
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        category:
+          type: string
+        retryable:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        meta:
+          type: object
+          additionalProperties: true
+    Envelope:
+      type: object
+      required: [messageId, tenantId, sourceSystem, targetSystem, schemaVersion, createdAt]
+      properties:
+        messageId:
+          type: string
+        idempotencyKey:
+          type: string
+        correlationId:
+          type: string
+        tenantId:
+          type: string
+        sourceSystem:
+          type: string
+        targetSystem:
+          type: string
+          example: BANK
+        schemaVersion:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    Account:
+      type: object
+      required: [iban]
+      properties:
+        iban:
+          type: string
+          pattern: '^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$'
+        name:
+          type: string
+    PaymentRequest:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [paymentId, endToEndId, debtorAccount, creditor, amount, currency, requestedExecutionDate]
+          properties:
+            paymentId:
+              type: string
+            endToEndId:
+              type: string
+            debtorAccount:
+              $ref: '#/components/schemas/Account'
+            creditor:
+              $ref: '#/components/schemas/Account'
+            amount:
+              $ref: '#/components/schemas/Money'
+            currency:
+              type: string
+            method:
+              type: string
+              enum: [ACH, WIRE, CHECK]
+            requestedExecutionDate:
+              type: string
+              format: date
+            remittanceInformation:
+              type: string
+    Payment:
+      type: object
+      properties:
+        bankPaymentId:
+          type: string
+        paymentId:
+          type: string
+        endToEndId:
+          type: string
+        status:
+          type: string
+          enum: [ACCEPTED]
+        settlementStatus:
+          type: string
+          enum: [MATCHED, PARTIAL, RETURNED]
+        debtorAccount:
+          $ref: '#/components/schemas/Account'
+        creditor:
+          $ref: '#/components/schemas/Account'
+        amount:
+          $ref: '#/components/schemas/Money'
+        creditedAmount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+        method:
+          type: string
+        requestedExecutionDate:
+          type: string
+        executionDate:
+          type: string
+        remittanceInformation:
+          type: [string, 'null']
+        returnReason:
+          type: [string, 'null']
+        acceptedAt:
+          type: string
+        duplicate:
+          type: boolean
+        _links:
+          type: object
+          additionalProperties: true
+    StatementRequest:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [accountIban, fromDate, toDate]
+          properties:
+            accountIban:
+              type: string
+            fromDate:
+              type: string
+              format: date
+            toDate:
+              type: string
+              format: date
+            currency:
+              type: string
+              default: USD
+    StatementEntry:
+      type: object
+      properties:
+        entryReference:
+          type: string
+        bankPaymentId:
+          type: string
+        endToEndId:
+          type: string
+        amount:
+          $ref: '#/components/schemas/Money'
+        creditDebit:
+          type: string
+          enum: [DBIT, CRDT]
+        status:
+          type: string
+        txStatus:
+          type: string
+          enum: [MATCHED, PARTIAL, RETURNED]
+        bookingDate:
+          type: string
+        valueDate:
+          type: string
+        returnReason:
+          type: [string, 'null']
+    Statement:
+      type: object
+      properties:
+        statementId:
+          type: string
+        statementNumber:
+          type: string
+        accountIban:
+          type: string
+        fromDate:
+          type: string
+        toDate:
+          type: string
+        currency:
+          type: string
+        entryCount:
+          type: integer
+        controlSum:
+          $ref: '#/components/schemas/Money'
+        createdAt:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatementEntry'
+        camt053:
+          type: object
+          properties:
+            href:
+              type: string
+        _links:
+          type: object
+          additionalProperties: true

@@ -1,0 +1,23 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000021001",
+  "idempotencyKey": "fixture-s4-ar-invoice-0001",
+  "correlationId": "corr-s4-ar-invoice-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-payment-expert",
+  "targetSystem": "S/4HANA",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "billingInstructionId": "BI-2026-0001",
+  "companyCode": "1000",
+  "customer": {
+    "customerId": "CUST-000042",
+    "name": "Northwind Manufacturing Inc."
+  },
+  "netAmount": { "amount": "100000.00", "currency": "USD" },
+  "taxAmount": { "amount": "0.00", "currency": "USD" },
+  "currency": "USD",
+  "invoiceDate": "2026-09-30",
+  "dueDate": "2026-10-30",
+  "paymentTerms": "NET30",
+  "businessReference": "BILL-2026-0001"
+}

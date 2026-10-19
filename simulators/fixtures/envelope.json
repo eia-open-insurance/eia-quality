@@ -1,0 +1,11 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000000001",
+  "idempotencyKey": "fixture-envelope-0001",
+  "correlationId": "corr-fixture-envelope-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "businessBook": "DIRECT",
+  "sourceSystem": "eia-cession-expert",
+  "targetSystem": "FS-RI",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z"
+}

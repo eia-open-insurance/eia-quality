@@ -1,0 +1,13 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000026001",
+  "idempotencyKey": "fixture-s4-reversal-0001",
+  "correlationId": "corr-s4-reversal-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-payment-expert",
+  "targetSystem": "S/4HANA",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "originalDocumentNumber": "S4-JE-2026-000001",
+  "reason": "Duplicate reserve posting",
+  "postingDate": "2026-10-01"
+}

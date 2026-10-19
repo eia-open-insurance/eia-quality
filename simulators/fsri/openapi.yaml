@@ -1,0 +1,1104 @@
+openapi: 3.1.0
+info:
+  title: EIA FS-RI simulator
+  version: 1.0.0
+  description: |
+    Deterministic test double for the SAP FS-RI boundary described in SPEC
+    §7.17-§7.18 and the interface contract in §7.23.5.
+
+    This service is a **test double only**. It accepts no production
+    credentials, has no FS-RI connectivity, and must never be deployed as a
+    production adapter.
+
+    Every write requires the SPEC §7.23.2 envelope and an idempotency key
+    (`Idempotency-Key` header or `idempotencyKey` envelope field). A replay
+    returns the stored result with `Idempotent-Replayed: true`; reusing a key
+    with a different payload returns 409. Deterministic fault scenarios are
+    selected with `X-Sim-Scenario` (see the simulator README).
+servers:
+  - url: http://127.0.0.1:8180/sim/fsri/v1
+    description: Aggregate simulator, host port 8180
+  - url: http://127.0.0.1:8181/sim/fsri/v1
+    description: Standalone FS-RI simulator
+  - url: http://simulators:8080/sim/fsri/v1
+    description: Docker Compose service name
+tags:
+  - name: Contract master
+  - name: Cession
+  - name: Retrocession
+  - name: Recoverables
+  - name: Statements
+  - name: Reconciliation
+  - name: Control
+paths:
+  /contracts:
+    post:
+      tags: [Contract master]
+      summary: Hand off a contract master record
+      description: Returns a deterministic FS-RI contract reference. The platform contract number stays the immutable business key.
+      operationId: handOffContract
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContractHandoff'
+      responses:
+        '201':
+          description: Contract acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractResult'
+        '200':
+          description: Duplicate contract acknowledged, not recreated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractResult'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Contract master]
+      summary: List contract masters
+      operationId: listContracts
+      parameters:
+        - name: businessBook
+          in: query
+          schema:
+            $ref: '#/components/schemas/BusinessBook'
+        - name: contractNumber
+          in: query
+          schema:
+            type: string
+        - name: page[size]
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 25
+        - name: page[after]
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Contract page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /contracts/{contractRef}:
+    get:
+      tags: [Contract master]
+      summary: Get a contract master by FS-RI reference
+      operationId: getContract
+      parameters:
+        - $ref: '#/components/parameters/ContractRef'
+      responses:
+        '200':
+          description: Contract master
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractResult'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /cessions:
+    post:
+      tags: [Cession]
+      summary: Cession hand-off for the DIRECT book
+      description: Creates a deterministic FS-RI cession, confirmation and recoverable. Partial and rejection modes are deterministic.
+      operationId: handOffCession
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CessionHandoff'
+      responses:
+        '201':
+          description: Cession posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffResult'
+        '200':
+          description: Duplicate hand-off acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffResult'
+        '207':
+          description: Partial acceptance; some lines rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffResult'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Cession]
+      summary: List cession hand-offs
+      operationId: listCessions
+      parameters:
+        - name: businessBook
+          in: query
+          schema:
+            $ref: '#/components/schemas/BusinessBook'
+        - name: contractNumber
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [POSTED, PARTIAL]
+      responses:
+        '200':
+          description: Cession page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /cessions/{cessionId}:
+    get:
+      tags: [Cession]
+      summary: Get a cession hand-off
+      operationId: getCession
+      parameters:
+        - name: cessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: FSRI-CES-DIRECT-000001
+      responses:
+        '200':
+          description: Cession result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffResult'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /cessions/{cessionId}/confirmation:
+    post:
+      tags: [Cession]
+      summary: Request or replay the cession confirmation
+      description: Idempotent. The mismatch scenario returns status MISMATCH and a non-zero variance without mutating the original result.
+      operationId: confirmCession
+      parameters:
+        - name: cessionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Envelope'
+      responses:
+        '200':
+          description: Confirmation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Confirmation'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /retros:
+    post:
+      tags: [Retrocession]
+      summary: Retro hand-off for the ASSUMED book
+      operationId: handOffRetro
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetroHandoff'
+      responses:
+        '201':
+          description: Retro posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffResult'
+        '207':
+          description: Partial acceptance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffResult'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Retrocession]
+      summary: List retro hand-offs
+      operationId: listRetros
+      responses:
+        '200':
+          description: Retro page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /retros/{retroId}:
+    get:
+      tags: [Retrocession]
+      summary: Get a retro hand-off
+      operationId: getRetro
+      parameters:
+        - name: retroId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: FSRI-RET-ASSUMED-000001
+      responses:
+        '200':
+          description: Retro result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffResult'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /retros/{retroId}/confirmation:
+    post:
+      tags: [Retrocession]
+      summary: Request or replay the retro confirmation
+      operationId: confirmRetro
+      parameters:
+        - name: retroId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Envelope'
+      responses:
+        '200':
+          description: Confirmation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Confirmation'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /recoverables:
+    get:
+      tags: [Recoverables]
+      summary: Query recoverables
+      operationId: listRecoverables
+      parameters:
+        - name: businessBook
+          in: query
+          schema:
+            $ref: '#/components/schemas/BusinessBook'
+        - name: contractNumber
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [OPEN, PARTIAL, CLOSED]
+      responses:
+        '200':
+          description: Recoverable page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /recoverables/{recoverableId}:
+    get:
+      tags: [Recoverables]
+      summary: Get a recoverable
+      operationId: getRecoverable
+      parameters:
+        - name: recoverableId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: FSRI-RCV-DIRECT-000001
+      responses:
+        '200':
+          description: Recoverable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recoverable'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /statements:
+    post:
+      tags: [Statements]
+      summary: Generate a deterministic statement from posted hand-offs
+      operationId: createStatement
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatementRequest'
+      responses:
+        '201':
+          description: Statement issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Statement'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Statements]
+      summary: List statements
+      operationId: listStatements
+      parameters:
+        - name: businessBook
+          in: query
+          schema:
+            $ref: '#/components/schemas/BusinessBook'
+        - name: period
+          in: query
+          schema:
+            type: string
+            pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+      responses:
+        '200':
+          description: Statement page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /statements/{statementId}:
+    get:
+      tags: [Statements]
+      summary: Get a statement with lines and totals
+      operationId: getStatement
+      parameters:
+        - name: statementId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: FSRI-STM-DIRECT-2026-09-000001
+      responses:
+        '200':
+          description: Statement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Statement'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /reconciliations:
+    get:
+      tags: [Reconciliation]
+      summary: Reconcile sent, accepted, partial, rejected, pending and amount variance
+      operationId: getReconciliation
+      parameters:
+        - name: businessBook
+          in: query
+          schema:
+            $ref: '#/components/schemas/BusinessBook'
+        - name: period
+          in: query
+          schema:
+            type: string
+            pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+      responses:
+        '200':
+          description: Reconciliation summary or page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reconciliation'
+  /admin/state:
+    get:
+      tags: [Control]
+      summary: Simulator control state (test only)
+      operationId: getState
+      responses:
+        '200':
+          description: Counters and recent requests
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/reset:
+    post:
+      tags: [Control]
+      summary: Reset all in-memory state and counters
+      operationId: reset
+      responses:
+        '200':
+          description: Reset
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/scenarios:
+    get:
+      tags: [Control]
+      summary: Read the default fault scenario
+      operationId: getScenario
+      responses:
+        '200':
+          description: Scenario state
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    post:
+      tags: [Control]
+      summary: Set or clear the default fault scenario
+      operationId: setScenario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scenario:
+                  oneOf:
+                    - type: string
+                    - type: 'null'
+      responses:
+        '200':
+          description: Scenario state
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Required on writes unless the envelope carries idempotencyKey.
+      schema:
+        type: string
+        maxLength: 128
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+    ContractRef:
+      name: contractRef
+      in: path
+      required: true
+      schema:
+        type: string
+        example: FSRI-CTR-DIRECT-000001
+  responses:
+    Problem:
+      description: Problem response (SPEC §7.23.4 taxonomy)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    BusinessBook:
+      type: string
+      enum: [DIRECT, ASSUMED]
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: string
+          pattern: '^-?\d{1,15}(\.\d{1,4})?$'
+          example: '240000.00'
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          example: USD
+    ProblemError:
+      type: object
+      properties:
+        field:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+    Problem:
+      type: object
+      required: [type, title, status, code, category, retryable, errors]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+        category:
+          type: string
+          enum: [VALIDATION, AUTHENTICATION, AUTHORIZATION, NOT_FOUND, CONFLICT, THROTTLED, UNAVAILABLE, TIMEOUT, PARTIAL, BUSINESS_REJECT, DUPLICATE, INTERNAL]
+        retryable:
+          type: boolean
+        correlationId:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemError'
+        meta:
+          type: object
+          additionalProperties: true
+    Envelope:
+      type: object
+      required: [messageId, tenantId, sourceSystem, targetSystem, schemaVersion, createdAt]
+      properties:
+        messageId:
+          type: string
+        idempotencyKey:
+          type: string
+        correlationId:
+          type: string
+        causationId:
+          type: string
+        tenantId:
+          type: string
+        businessBook:
+          $ref: '#/components/schemas/BusinessBook'
+        sourceSystem:
+          type: string
+        targetSystem:
+          type: string
+        schemaVersion:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+        createdAt:
+          type: string
+          format: date-time
+        payloadHash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        signature:
+          type: string
+    Layer:
+      type: object
+      required: [layerNumber, attachment, limit]
+      properties:
+        layerNumber:
+          type: integer
+        attachment:
+          $ref: '#/components/schemas/Money'
+        limit:
+          $ref: '#/components/schemas/Money'
+    Participant:
+      type: object
+      required: [partyId, role, sharePct]
+      properties:
+        partyId:
+          type: string
+        role:
+          type: string
+          enum: [REINSURER, BROKER, CEDENT]
+        sharePct:
+          type: string
+          pattern: '^0?\.\d{6}$|^1\.000000$'
+    ContractHandoff:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [contractNumber, contractType, cedantPartyId, reinsurerPartyIds, effectiveFrom, effectiveTo, currency, status, layers, participants]
+          properties:
+            contractNumber:
+              type: string
+              example: CES-2026-0001
+            contractType:
+              type: string
+              enum: [QUOTA_SHARE, SURPLUS, EXCESS_OF_LOSS, AGGREGATE_XOL, STOP_LOSS, FACULTATIVE]
+            cedantPartyId:
+              type: string
+            reinsurerPartyIds:
+              type: array
+              items:
+                type: string
+            effectiveFrom:
+              type: string
+              format: date
+            effectiveTo:
+              type: string
+              format: date
+            currency:
+              type: string
+            status:
+              type: string
+              enum: [DRAFT, BOUND, ENDORSED, CANCELLED]
+            layers:
+              type: array
+              items:
+                $ref: '#/components/schemas/Layer'
+            participants:
+              type: array
+              items:
+                $ref: '#/components/schemas/Participant'
+    ContractResult:
+      type: object
+      properties:
+        fsriContractRef:
+          type: string
+        contractNumber:
+          type: string
+        businessBook:
+          $ref: '#/components/schemas/BusinessBook'
+        contractType:
+          type: string
+        status:
+          type: string
+          example: ACKNOWLEDGED
+        contractStatus:
+          type: string
+        effectiveFrom:
+          type: string
+        effectiveTo:
+          type: string
+        currency:
+          type: string
+        layers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Layer'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+        acknowledgedAt:
+          type: string
+        duplicate:
+          type: boolean
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemError'
+        _links:
+          type: object
+          additionalProperties: true
+    SourceReference:
+      type: object
+      required: [type, id, businessKey, version]
+      properties:
+        type:
+          type: string
+        id:
+          type: string
+        businessKey:
+          type: string
+        version:
+          type: integer
+        book:
+          $ref: '#/components/schemas/BusinessBook'
+    DocumentReference:
+      type: object
+      properties:
+        documentId:
+          type: string
+        documentType:
+          type: string
+    CessionHandoff:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [contractNumber, cessionCaseRef, source, expectedAmount, effectiveDate]
+          properties:
+            contractNumber:
+              type: string
+            fsriContractRef:
+              type: string
+            cessionCaseRef:
+              type: string
+            source:
+              $ref: '#/components/schemas/SourceReference'
+            policyRef:
+              type: object
+              additionalProperties: true
+            claimRef:
+              type: object
+              additionalProperties: true
+            expectedAmount:
+              $ref: '#/components/schemas/Money'
+            cededPremium:
+              $ref: '#/components/schemas/Money'
+            commissionPct:
+              type: string
+              example: '0.250000'
+            effectiveDate:
+              type: string
+              format: date
+            calculationBasis:
+              type: string
+              enum: [PAID_LOSS, RESERVE, ULTIMATE, PREMIUM]
+            ruleVersion:
+              type: string
+            documents:
+              type: array
+              items:
+                $ref: '#/components/schemas/DocumentReference'
+    RetroHandoff:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [contractNumber, retroCaseRef, source, expectedAmount, effectiveDate]
+          properties:
+            contractNumber:
+              type: string
+            fsriContractRef:
+              type: string
+            retroCaseRef:
+              type: string
+            source:
+              $ref: '#/components/schemas/SourceReference'
+            contractRef:
+              type: object
+              additionalProperties: true
+            expectedAmount:
+              $ref: '#/components/schemas/Money'
+            cededLoss:
+              $ref: '#/components/schemas/Money'
+            retrocessionPct:
+              type: string
+              example: '0.300000'
+            effectiveDate:
+              type: string
+              format: date
+            ruleVersion:
+              type: string
+    Confirmation:
+      type: object
+      properties:
+        confirmationId:
+          type: string
+        fsriCessionId:
+          type: string
+        fsriRetroId:
+          type: string
+        businessBook:
+          $ref: '#/components/schemas/BusinessBook'
+        status:
+          type: string
+          enum: [CONFIRMED, MISMATCH]
+        expectedAmount:
+          $ref: '#/components/schemas/Money'
+        confirmedAmount:
+          $ref: '#/components/schemas/Money'
+        variance:
+          $ref: '#/components/schemas/Money'
+        confirmedAt:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemError'
+    HandoffLine:
+      type: object
+      properties:
+        lineNumber:
+          type: integer
+        lineType:
+          type: string
+        status:
+          type: string
+          enum: [ACCEPTED, REJECTED]
+        amount:
+          $ref: '#/components/schemas/Money'
+        reasonCode:
+          type: string
+    HandoffResult:
+      type: object
+      properties:
+        fsriCessionId:
+          type: string
+        fsriRetroId:
+          type: string
+        fsriContractRef:
+          type: string
+        contractNumber:
+          type: string
+        businessBook:
+          $ref: '#/components/schemas/BusinessBook'
+        caseReference:
+          type: string
+        source:
+          $ref: '#/components/schemas/SourceReference'
+        status:
+          type: string
+          enum: [POSTED, PARTIAL]
+        expectedAmount:
+          $ref: '#/components/schemas/Money'
+        confirmedAmount:
+          $ref: '#/components/schemas/Money'
+        variance:
+          $ref: '#/components/schemas/Money'
+        effectiveDate:
+          type: string
+        receivedAt:
+          type: string
+        confirmation:
+          $ref: '#/components/schemas/Confirmation'
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/HandoffLine'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemError'
+        duplicate:
+          type: boolean
+        _links:
+          type: object
+          additionalProperties: true
+    Recoverable:
+      type: object
+      properties:
+        recoverableId:
+          type: string
+        businessBook:
+          $ref: '#/components/schemas/BusinessBook'
+        contractNumber:
+          type: string
+        fsriContractRef:
+          type: string
+        fsriCessionId:
+          type: string
+        fsriRetroId:
+          type: string
+        caseReference:
+          type: string
+        currency:
+          type: string
+        confirmedAmount:
+          $ref: '#/components/schemas/Money'
+        paid:
+          $ref: '#/components/schemas/Money'
+        unpaid:
+          $ref: '#/components/schemas/Money'
+        ibnr:
+          $ref: '#/components/schemas/Money'
+        outstanding:
+          $ref: '#/components/schemas/Money'
+        dueDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [OPEN, PARTIAL, CLOSED]
+        updatedAt:
+          type: string
+        _links:
+          type: object
+          additionalProperties: true
+    StatementRequest:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [period]
+          properties:
+            period:
+              type: string
+              pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+            currency:
+              type: string
+              default: USD
+            contractNumbers:
+              type: array
+              items:
+                type: string
+    StatementLine:
+      type: object
+      properties:
+        lineId:
+          type: string
+        lineNumber:
+          type: integer
+        lineType:
+          type: string
+          enum: [CEDED_PREMIUM, CEDED_LOSS, COMMISSION, RECOVERABLE]
+        contractNumber:
+          type: string
+        caseReference:
+          type: string
+        parentId:
+          type: string
+        amount:
+          $ref: '#/components/schemas/Money'
+    Statement:
+      type: object
+      properties:
+        statementId:
+          type: string
+        statementNumber:
+          type: string
+        version:
+          type: integer
+        businessBook:
+          $ref: '#/components/schemas/BusinessBook'
+        period:
+          type: string
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [ISSUED]
+        issuedAt:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatementLine'
+        totals:
+          type: object
+          properties:
+            cededPremium:
+              $ref: '#/components/schemas/Money'
+            cededLoss:
+              $ref: '#/components/schemas/Money'
+            commission:
+              $ref: '#/components/schemas/Money'
+            netDue:
+              $ref: '#/components/schemas/Money'
+        _links:
+          type: object
+          additionalProperties: true
+    ReconciliationBreak:
+      type: object
+      properties:
+        breakId:
+          type: string
+        businessReference:
+          type: string
+        parentId:
+          type: string
+        reason:
+          type: string
+          example: AMOUNT_MISMATCH
+        expectedAmount:
+          $ref: '#/components/schemas/Money'
+        confirmedAmount:
+          $ref: '#/components/schemas/Money'
+        difference:
+          $ref: '#/components/schemas/Money'
+        status:
+          type: string
+        owner:
+          type: string
+    Reconciliation:
+      type: object
+      properties:
+        businessBook:
+          $ref: '#/components/schemas/BusinessBook'
+        period:
+          type: string
+        currency:
+          type: string
+        sent:
+          type: integer
+        accepted:
+          type: integer
+        partial:
+          type: integer
+        rejected:
+          type: integer
+        pending:
+          type: integer
+        amountExpected:
+          $ref: '#/components/schemas/Money'
+        amountConfirmed:
+          $ref: '#/components/schemas/Money'
+        variance:
+          $ref: '#/components/schemas/Money'
+        variancePct:
+          type: [string, 'null']
+        tolerance:
+          type: object
+          properties:
+            amount:
+              $ref: '#/components/schemas/Money'
+            rule:
+              type: string
+        status:
+          type: string
+          enum: [BALANCED, BREAKS]
+        invariant:
+          type: object
+          additionalProperties: true
+        breaks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReconciliationBreak'
+        checkedAt:
+          type: string

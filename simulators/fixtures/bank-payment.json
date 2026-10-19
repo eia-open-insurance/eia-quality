@@ -1,0 +1,25 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000030001",
+  "idempotencyKey": "fixture-bank-payment-0001",
+  "correlationId": "corr-bank-payment-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-payment-expert",
+  "targetSystem": "BANK",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "paymentId": "PAY-2026-0044721",
+  "endToEndId": "E2E-2026-0044721",
+  "debtorAccount": {
+    "iban": "US64EIAQ00000000001234",
+    "name": "EIA Open Insurance"
+  },
+  "creditor": {
+    "name": "Acme Defense Counsel LLP",
+    "iban": "US12EIAQ00000000005678"
+  },
+  "amount": { "amount": "125000.00", "currency": "USD" },
+  "currency": "USD",
+  "method": "ACH",
+  "requestedExecutionDate": "2026-09-30",
+  "remittanceInformation": "CLM-2026-0193382 settlement"
+}

@@ -1,0 +1,344 @@
+openapi: 3.1.0
+info:
+  title: EIA sanctions simulator
+  version: 1.0.0
+  description: |
+    Deterministic sanctions and PEP screening test double (SPEC §7.8, §15.3).
+
+    All watchlist entries are **fictional**. Resolutions: CLEAR,
+    POTENTIAL_MATCH, CONFIRMED_MATCH. Provider failure returns 503 with
+    `failClosed: true` so callers hold the transaction and re-screen.
+    Test double only.
+servers:
+  - url: http://127.0.0.1:8180/sim/sanctions/v1
+    description: Aggregate simulator, host port 8180
+  - url: http://127.0.0.1:8186/sim/sanctions/v1
+    description: Standalone sanctions simulator
+paths:
+  /screenings:
+    post:
+      summary: Screen a party against simulated watchlists
+      description: Idempotent by screeningRequestId. Fail-closed on provider error.
+      operationId: screenParty
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Scenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScreeningRequest'
+      responses:
+        '201':
+          description: Screening completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Screening'
+        '200':
+          description: Duplicate screening acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Screening'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '503':
+          description: Provider failure; screening fails closed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    get:
+      summary: List screenings
+      operationId: listScreenings
+      parameters:
+        - name: screeningRequestId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [CLEAR, POTENTIAL_MATCH, CONFIRMED_MATCH]
+      responses:
+        '200':
+          description: Screening page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /screenings/{screeningId}:
+    get:
+      summary: Get a screening
+      operationId: getScreening
+      parameters:
+        - name: screeningId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: SCR-000001
+      responses:
+        '200':
+          description: Screening
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Screening'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /lists:
+    get:
+      summary: List simulated watchlists
+      operationId: listLists
+      responses:
+        '200':
+          description: List catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /lists/{listCode}:
+    get:
+      summary: List simulated entries for one watchlist
+      operationId: getList
+      parameters:
+        - name: listCode
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [OFAC_SDN, EU_CONSOLIDATED, UN_CONSOLIDATED]
+      responses:
+        '200':
+          description: List entries
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          $ref: '#/components/responses/Problem'
+  /admin/state:
+    get:
+      summary: Simulator control state
+      operationId: getState
+      responses:
+        '200':
+          description: State
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/reset:
+    post:
+      summary: Reset in-memory state
+      operationId: reset
+      responses:
+        '200':
+          description: Reset
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/scenarios:
+    get:
+      summary: Read the default fault scenario
+      operationId: getScenario
+      responses:
+        '200':
+          description: Scenario state
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    post:
+      summary: Set or clear the default fault scenario
+      operationId: setScenario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scenario:
+                  type: [string, 'null']
+      responses:
+        '200':
+          description: Scenario state
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+    Scenario:
+      name: X-Sim-Scenario
+      in: header
+      required: false
+      schema:
+        type: string
+        enum: [accept, potential, confirmed, error, reject, timeout, malformed, unavailable, throttled, duplicate]
+  responses:
+    Problem:
+      description: Problem response
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        category:
+          type: string
+        retryable:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        meta:
+          type: object
+          additionalProperties: true
+    Envelope:
+      type: object
+      required: [messageId, tenantId, sourceSystem, targetSystem, schemaVersion, createdAt]
+      properties:
+        messageId:
+          type: string
+        idempotencyKey:
+          type: string
+        tenantId:
+          type: string
+        sourceSystem:
+          type: string
+        targetSystem:
+          type: string
+          example: SANCTIONS
+        schemaVersion:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    Party:
+      type: object
+      required: [name]
+      properties:
+        partyId:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+          pattern: '^[A-Z]{2}$'
+        dateOfBirth:
+          type: string
+          format: date
+    ScreeningRequest:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [screeningRequestId, party]
+          properties:
+            screeningRequestId:
+              type: string
+            party:
+              $ref: '#/components/schemas/Party'
+            threshold:
+              type: number
+              minimum: 0
+              maximum: 100
+              default: 85
+            lists:
+              type: array
+              items:
+                type: string
+                enum: [OFAC_SDN, EU_CONSOLIDATED, UN_CONSOLIDATED]
+    Match:
+      type: object
+      properties:
+        listCode:
+          type: string
+        listName:
+          type: string
+        entryId:
+          type: string
+        matchedName:
+          type: string
+        country:
+          type: string
+        program:
+          type: string
+        score:
+          type: number
+        matchType:
+          type: string
+          enum: [EXACT, FUZZY]
+    Screening:
+      type: object
+      properties:
+        screeningId:
+          type: string
+        screeningRequestId:
+          type: string
+        party:
+          $ref: '#/components/schemas/Party'
+        status:
+          type: string
+          enum: [CLEAR, POTENTIAL_MATCH, CONFIRMED_MATCH]
+        decision:
+          type: string
+          enum: [CLEAR_TO_PROCEED, ESCALATE, BLOCK]
+        score:
+          type: number
+        threshold:
+          type: number
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/Match'
+        listsScreened:
+          type: array
+          items:
+            type: string
+        listVersion:
+          type: string
+        screenedAt:
+          type: string
+        failClosed:
+          type: boolean
+        duplicate:
+          type: boolean
+        _links:
+          type: object
+          additionalProperties: true

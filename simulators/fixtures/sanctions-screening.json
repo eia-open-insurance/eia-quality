@@ -1,0 +1,18 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000042001",
+  "idempotencyKey": "fixture-sanctions-screening-0001",
+  "correlationId": "corr-sanctions-screening-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-party-expert",
+  "targetSystem": "SANCTIONS",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "screeningRequestId": "SCR-REQ-2026-000042",
+  "party": {
+    "partyId": "0192f3a4-0000-7000-8000-000000060001",
+    "name": "Jane Q. Public",
+    "country": "US",
+    "dateOfBirth": "1980-04-12"
+  },
+  "threshold": 85
+}

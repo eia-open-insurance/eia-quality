@@ -1,0 +1,22 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000040001",
+  "idempotencyKey": "fixture-email-message-0001",
+  "correlationId": "corr-email-message-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-notifications-expert",
+  "targetSystem": "EMAIL_RELAY",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "notificationId": "NOTIF-2026-000123",
+  "attempt": 1,
+  "recipients": [
+    {
+      "address": "adjuster@example.test",
+      "name": "A. Adjuster"
+    }
+  ],
+  "subject": "Claim CLM-2026-0193382 status update",
+  "body": "Your claim has moved to review. Reference CLM-2026-0193382.",
+  "templateCode": "CLAIM_STATUS",
+  "classification": "CONFIDENTIAL"
+}

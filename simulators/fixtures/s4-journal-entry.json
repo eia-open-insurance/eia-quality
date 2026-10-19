@@ -1,0 +1,30 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000020001",
+  "idempotencyKey": "fixture-s4-journal-0001",
+  "correlationId": "corr-s4-journal-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-payment-expert",
+  "targetSystem": "S/4HANA",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "companyCode": "1000",
+  "postingDate": "2026-09-30",
+  "documentDate": "2026-09-30",
+  "documentType": "SA",
+  "currency": "USD",
+  "businessReference": "JE-CLAIM-RESERVE-2026-0001",
+  "functionalCurrency": "USD",
+  "lines": [
+    {
+      "account": "510100",
+      "debitAmount": { "amount": "250000.00", "currency": "USD" },
+      "costCenter": "CC-CLAIMS",
+      "text": "Incurred loss"
+    },
+    {
+      "account": "215000",
+      "creditAmount": { "amount": "250000.00", "currency": "USD" },
+      "text": "Loss reserve"
+    }
+  ]
+}

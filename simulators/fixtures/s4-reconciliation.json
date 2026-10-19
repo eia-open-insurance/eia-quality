@@ -1,0 +1,25 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000025001",
+  "idempotencyKey": "fixture-s4-reconciliation-0001",
+  "correlationId": "corr-s4-reconciliation-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-payment-expert",
+  "targetSystem": "S/4HANA",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "companyCode": "1000",
+  "period": "2026-09",
+  "currency": "USD",
+  "expected": [
+    {
+      "businessReference": "BILL-2026-0001",
+      "documentType": "AR_INVOICE",
+      "amount": { "amount": "100000.00", "currency": "USD" }
+    },
+    {
+      "businessReference": "AP-2026-0001",
+      "documentType": "SUPPLIER_INVOICE",
+      "amount": { "amount": "50000.00", "currency": "USD" }
+    }
+  ]
+}

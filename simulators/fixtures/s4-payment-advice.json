@@ -1,0 +1,26 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000023001",
+  "idempotencyKey": "fixture-s4-payment-advice-0001",
+  "correlationId": "corr-s4-payment-advice-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-payment-expert",
+  "targetSystem": "S/4HANA",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "paymentId": "PAY-AP-2026-0001",
+  "companyCode": "1000",
+  "payee": {
+    "vendorId": "VEND-000007",
+    "name": "Acme Defense Counsel LLP",
+    "bankAccount": "US12EIAQ00000000005678"
+  },
+  "amount": { "amount": "50000.00", "currency": "USD" },
+  "currency": "USD",
+  "method": "ACH",
+  "remittance": {
+    "businessReferences": ["AP-2026-0001"],
+    "note": "Defense counsel invoice settlement"
+  },
+  "dueDate": "2026-10-30",
+  "valueDate": "2026-09-30"
+}

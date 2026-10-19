@@ -1,0 +1,68 @@
+{
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "clock": "2026-10-19T12:00:00.000Z",
+  "aggregate": {
+    "env": "EIA_SIM_BASE_URL",
+    "containerUrl": "http://simulators:8080",
+    "defaultHost": "127.0.0.1",
+    "defaultPort": 8180
+  },
+  "systems": {
+    "fsri": {
+      "env": "EIA_SIM_FSRI_URL",
+      "defaultHost": "127.0.0.1",
+      "defaultPort": 8181,
+      "basePath": "/sim/fsri/v1",
+      "containerUrl": "http://simulators:8080/sim/fsri/v1",
+      "fixtures": ["fsri-contract", "fsri-retro-contract", "fsri-cession", "fsri-retro", "fsri-statement"]
+    },
+    "s4": {
+      "env": "EIA_SIM_S4_URL",
+      "defaultHost": "127.0.0.1",
+      "defaultPort": 8182,
+      "basePath": "/sim/s4/v1",
+      "containerUrl": "http://simulators:8080/sim/s4/v1",
+      "fixtures": [
+        "s4-journal-entry",
+        "s4-ar-invoice",
+        "s4-supplier-invoice",
+        "s4-payment-advice",
+        "s4-cash-application",
+        "s4-reconciliation",
+        "s4-reversal"
+      ]
+    },
+    "bank": {
+      "env": "EIA_SIM_BANK_URL",
+      "defaultHost": "127.0.0.1",
+      "defaultPort": 8183,
+      "basePath": "/sim/bank/v1",
+      "containerUrl": "http://simulators:8080/sim/bank/v1",
+      "fixtures": ["bank-payment", "bank-statement"]
+    },
+    "email": {
+      "env": "EIA_SIM_EMAIL_URL",
+      "defaultHost": "127.0.0.1",
+      "defaultPort": 8184,
+      "basePath": "/sim/email/v1",
+      "containerUrl": "http://simulators:8080/sim/email/v1",
+      "fixtures": ["email-message"]
+    },
+    "ocr": {
+      "env": "EIA_SIM_OCR_URL",
+      "defaultHost": "127.0.0.1",
+      "defaultPort": 8185,
+      "basePath": "/sim/ocr/v1",
+      "containerUrl": "http://simulators:8080/sim/ocr/v1",
+      "fixtures": ["ocr-document"]
+    },
+    "sanctions": {
+      "env": "EIA_SIM_SANCTIONS_URL",
+      "defaultHost": "127.0.0.1",
+      "defaultPort": 8186,
+      "basePath": "/sim/sanctions/v1",
+      "containerUrl": "http://simulators:8080/sim/sanctions/v1",
+      "fixtures": ["sanctions-screening"]
+    }
+  }
+}

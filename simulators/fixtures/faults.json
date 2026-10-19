@@ -1,0 +1,77 @@
+{
+  "priority": [
+    "X-Sim-Scenario request header",
+    "simulation.scenario in the request body",
+    "admin default set with POST /sim/{system}/v1/admin/scenarios",
+    "magic suffix in a business reference"
+  ],
+  "headers": {
+    "scenario": "X-Sim-Scenario",
+    "delay": "X-Sim-Delay-Ms",
+    "correlation": "X-Correlation-Id",
+    "idempotency": "Idempotency-Key",
+    "signature": "X-EIA-Signature"
+  },
+  "transportScenarios": {
+    "accept": { "http": "normal", "note": "default; domain handler runs" },
+    "timeout": { "http": 504, "code": "EIA-SIM-TIMEOUT", "retryable": true, "note": "waits SIM_TIMEOUT_MS (default 1500) and records nothing" },
+    "unavailable": { "http": 503, "code": "EIA-SIM-UNAVAILABLE", "retryable": true, "note": "Retry-After: 5; records nothing" },
+    "throttled": { "http": 429, "code": "EIA-SIM-THROTTLED", "retryable": true, "note": "Retry-After: 1 plus RateLimit headers" },
+    "malformed": { "http": 400, "code": "EIA-SIM-MALFORMED-PAYLOAD", "retryable": false, "note": "provider-style structural rejection" },
+    "reject": { "http": 422, "code": "EIA-SIM-BUSINESS-REJECT", "retryable": false, "note": "domain-specific business rejection" },
+    "partial": { "http": 207, "code": "EIA-SIM-PARTIAL", "retryable": false, "note": "some lines accepted, some rejected" },
+    "duplicate": { "http": 200, "code": "EIA-SIM-DUPLICATE", "retryable": false, "note": "replays the existing idempotency record; 404 when none exists" }
+  },
+  "magicSuffixes": [
+    { "suffix": "-REJECT", "scenario": "reject", "appliesTo": ["fsri", "s4", "bank", "email", "ocr", "sanctions"] },
+    { "suffix": "-PARTIAL", "scenario": "partial", "appliesTo": ["fsri", "s4", "bank"] },
+    { "suffix": "-TIMEOUT", "scenario": "timeout", "appliesTo": ["fsri", "s4", "bank", "email", "ocr", "sanctions"] },
+    { "suffix": "-UNAVAILABLE", "scenario": "unavailable", "appliesTo": ["fsri", "s4", "bank", "email", "ocr", "sanctions"] },
+    { "suffix": "-THROTTLED", "scenario": "throttled", "appliesTo": ["fsri", "s4", "bank", "email", "ocr", "sanctions"] },
+    { "suffix": "-MALFORMED", "scenario": "malformed", "appliesTo": ["fsri", "s4", "bank", "email", "ocr", "sanctions"] },
+    { "suffix": "-DUPLICATE", "scenario": "duplicate", "appliesTo": ["fsri", "s4", "bank", "email", "ocr", "sanctions"] },
+    { "suffix": "-MISMATCH", "scenario": "mismatch", "appliesTo": ["fsri"] },
+    { "suffix": "-CLOSED", "scenario": "closed_period", "appliesTo": ["s4"] },
+    { "suffix": "-FX", "scenario": "fx_difference", "appliesTo": ["s4"] },
+    { "suffix": "-RETURN", "scenario": "return", "appliesTo": ["bank"] },
+    { "suffix": "-BOUNCE", "scenario": "bounce", "appliesTo": ["email"] },
+    { "suffix": "-SUPPRESS", "scenario": "suppress", "appliesTo": ["email"] },
+    { "suffix": "-FAIL", "scenario": "fail", "appliesTo": ["ocr"] },
+    { "suffix": "-LOWCONF", "scenario": "low_confidence", "appliesTo": ["ocr"] },
+    { "suffix": "-CONFIRMED", "scenario": "confirmed", "appliesTo": ["sanctions"] },
+    { "suffix": "-POTENTIAL", "scenario": "potential", "appliesTo": ["sanctions"] },
+    { "suffix": "-SCRERR", "scenario": "error", "appliesTo": ["sanctions"] }
+  ],
+  "domainScenarios": {
+    "fsri": {
+      "reject": "422 for contract, cession, retro and confirmation hand-offs; rejection recorded for reconciliation",
+      "partial": "207 for cession and retro hand-offs; confirmed amount is 60% of expected with a rejected line",
+      "mismatch": "confirmation returns status MISMATCH and a non-zero variance"
+    },
+    "s4": {
+      "closed_period": "422 CLOSED_PERIOD; posting date falls in a closed fiscal period",
+      "fx_difference": "posting succeeds with a non-zero fxDifference line",
+      "reject": "422 S4-FI-REJECT business rejection",
+      "partial": "207 for reconciliation with a subset of breaks resolved"
+    },
+    "bank": {
+      "return": "payment accepted; camt.053 carries a returned entry with reason AC04",
+      "partial": "payment accepted at 50%; camt.053 line status PARTIAL",
+      "reject": "422 payment rejected before execution"
+    },
+    "email": {
+      "bounce": "relay accepts then reports BOUNCED with MAILBOX_FULL",
+      "suppress": "recipient is suppressed; status SUPPRESSED",
+      "reject": "422 relay rejection"
+    },
+    "ocr": {
+      "fail": "job completes with status FAILED and OCR_UNREADABLE",
+      "low_confidence": "job completes with status LOW_CONFIDENCE and confidence 0.42"
+    },
+    "sanctions": {
+      "potential": "status POTENTIAL_MATCH",
+      "confirmed": "status CONFIRMED_MATCH",
+      "error": "503 UNAVAILABLE with failClosed true"
+    }
+  }
+}

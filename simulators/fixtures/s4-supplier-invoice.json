@@ -1,0 +1,23 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000022001",
+  "idempotencyKey": "fixture-s4-supplier-invoice-0001",
+  "correlationId": "corr-s4-supplier-invoice-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-payment-expert",
+  "targetSystem": "S/4HANA",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "invoiceId": "SI-EXT-2026-0001",
+  "supplier": {
+    "vendorId": "VEND-000007",
+    "name": "Acme Defense Counsel LLP"
+  },
+  "companyCode": "1000",
+  "netAmount": { "amount": "50000.00", "currency": "USD" },
+  "taxAmount": { "amount": "0.00", "currency": "USD" },
+  "currency": "USD",
+  "invoiceDate": "2026-09-30",
+  "dueDate": "2026-10-30",
+  "businessReference": "AP-2026-0001",
+  "purchaseOrder": "PO-2026-000777"
+}

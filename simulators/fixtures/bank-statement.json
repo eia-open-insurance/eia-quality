@@ -1,0 +1,14 @@
+{
+  "messageId": "0192f3a4-0000-7000-8000-000000031001",
+  "idempotencyKey": "fixture-bank-statement-0001",
+  "correlationId": "corr-bank-statement-0001",
+  "tenantId": "0192f3a4-0000-7000-8000-000000000001",
+  "sourceSystem": "eia-payment-expert",
+  "targetSystem": "BANK",
+  "schemaVersion": "1.0.0",
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "accountIban": "US64EIAQ00000000001234",
+  "fromDate": "2026-09-01",
+  "toDate": "2026-09-30",
+  "currency": "USD"
+}
